@@ -1287,6 +1287,7 @@ class Transport(virtual.Transport):
 
         # All channels share the same poller.
         self.cycle = MultiChannelPoller()
+        self.on_poll_start_by_connection = {}
 
     def driver_version(self):
         return redis.__version__
@@ -1306,6 +1307,7 @@ class Transport(virtual.Transport):
             if cycle.fds:
                 # stop polling in the event loop
                 try:
+                    on_poll_start = self.on_poll_start_by_connection.pop(connection)
                     loop.on_tick.remove(on_poll_start)
                 except KeyError:
                     pass
@@ -1315,6 +1317,7 @@ class Transport(virtual.Transport):
             cycle_poll_start()
             [add_reader(fd, on_readable, fd) for fd in cycle.fds]
         loop.on_tick.add(on_poll_start)
+        self.on_poll_start_by_connection[connection] = on_poll_start
         loop.call_repeatedly(10, cycle.maybe_restore_messages)
         health_check_interval = connection.client.transport_options.get(
             'health_check_interval',
